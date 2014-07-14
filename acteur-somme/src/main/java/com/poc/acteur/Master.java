@@ -4,19 +4,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import scala.Option;
-import scala.collection.script.Start;
 import scala.concurrent.duration.Duration;
-import akka.actor.ActorPath;
 import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
-import akka.routing.RoundRobinRouter;
+import akka.routing.ActorRefRoutee;
+import akka.routing.RoundRobinRoutingLogic;
+import akka.routing.Routee;
 import akka.routing.Router;
-import akka.routing.RouterActor;
-import akka.routing.RouterConfig;
-import akka.routing.RoutingLogic;
 
 /**
  * 
@@ -28,16 +23,16 @@ public class Master extends UntypedActor {
 	/**
 	 * La liste de nombres en entree
 	 */
-	private List<Integer> numbers;
+	private final List<Integer> inputNumbers;
 	
 	/**
 	 * La liste de nombres transformés
 	 */
-	private List<Integer> transformedNumbers;
+	private final List<Integer> transformedNumbers;
 	
-	private final ActorRef workerRouter;
+	private final Router router;
 	
-	long start = System.currentTimeMillis();
+	private final long start = System.currentTimeMillis();
 	
 	/**
 	 * Reference vers la future pour lui renvoyer le resultat
@@ -46,14 +41,8 @@ public class Master extends UntypedActor {
 
 	public Master(int nbWorkers, List<Integer> numbers) {
 		transformedNumbers = new ArrayList<Integer>();
-		this.numbers = numbers;
-		
-		// create the worker dispatcher
-		workerRouter = this.getContext().actorOf(
-				Props.create(Worker.class).withRouter(
-						new RoundRobinRouter(nbWorkers)));
-		
-		
+		this.inputNumbers = numbers;
+		router = createRouter(nbWorkers);
 		System.out.println("master and router created");
 	}
 
@@ -62,19 +51,19 @@ public class Master extends UntypedActor {
 		if (message instanceof com.poc.acteur.StartMessage) {
 			initialSender = getSender();
 			System.out.println("master received a start event");
-			// dispatch
-			for (Integer number : numbers) {
-				// send to a worker
-				workerRouter.tell(number, getSelf());
+			for (Integer number : inputNumbers) {
+				// le routeur dispatche les differents elements de la liste au workers
+				router.route(number, getSelf());
 			}
+			
+			//reception du resultat du traitement
 		} else if (message instanceof ResultMessage) {
 			System.out.println("master received result event");
 			ResultMessage result = (ResultMessage) message;
-			// join
-			transformedNumbers.add(result.value);
+			transformedNumbers.add(result.getValue());
 			
 			//on detecte quand on a fini le traitement
-			if (transformedNumbers.size() == numbers.size()) {
+			if (transformedNumbers.size() == inputNumbers.size()) {
 				
 				//calcule la duree du traitement
 				Duration duration = Duration.create(System.currentTimeMillis()
@@ -90,5 +79,22 @@ public class Master extends UntypedActor {
 				getContext().system().shutdown();
 			}
 		}
+	}
+	
+	/**
+	 * Cree un routeur contenant le pool de workers
+	 * @param nbWorkers
+	 * @return
+	 */
+	private Router createRouter (int nbWorkers) {
+		Router router = null;
+		final List<Routee> routees = new ArrayList<Routee>();
+		 for (int i = 0; i < nbWorkers; i++) {
+			 final ActorRef workerRouter = getContext().actorOf(Props.create(Worker.class));
+			 getContext().watch(workerRouter);
+			 routees.add(new ActorRefRoutee(workerRouter));
+		 }
+		 router = new Router(new RoundRobinRoutingLogic(), routees);
+		 return router;
 	}
 }

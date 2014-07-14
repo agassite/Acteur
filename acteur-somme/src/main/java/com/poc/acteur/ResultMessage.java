@@ -1,15 +1,28 @@
 package com.poc.acteur;
 
+import java.io.Serializable;
+
 /**
  * 
  * @author david
  *
  */
-public class ResultMessage {
-	public ResultMessage(int value) {
+public final class ResultMessage implements Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	public ResultMessage(final int value) {
 		this.value = value;
 	}
 
-	public int value;
+	private final  int value;
+
+	public int getValue() {
+		return value;
+	}
+	
+	
 
 }

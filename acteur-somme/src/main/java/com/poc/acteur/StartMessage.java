@@ -1,5 +1,12 @@
 package com.poc.acteur;
 
-public class StartMessage {
+import java.io.Serializable;
+
+public final class StartMessage implements Serializable{
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 }
