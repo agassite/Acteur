@@ -12,6 +12,7 @@
  
   <modules>
     <module>acteur-somme</module>
+    <module>acteur-supervisor</module>
   </modules>
 
   <build>

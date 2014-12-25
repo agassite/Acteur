@@ -8,6 +8,8 @@ import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import akka.routing.ActorRefRoutee;
 import akka.routing.RoundRobinRoutingLogic;
 import akka.routing.Routee;
@@ -20,6 +22,7 @@ import akka.routing.Router;
  */
 public class Master extends UntypedActor {
 
+	LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 	/**
 	 * La liste de nombres en entree
 	 */
@@ -32,7 +35,9 @@ public class Master extends UntypedActor {
 	
 	private final Router router;
 	
-	private final long start = System.currentTimeMillis();
+	private  long start = System.currentTimeMillis();
+	
+	ActorRef router2 = null;
 	
 	/**
 	 * Reference vers la future pour lui renvoyer le resultat
@@ -43,22 +48,23 @@ public class Master extends UntypedActor {
 		transformedNumbers = new ArrayList<Integer>();
 		this.inputNumbers = numbers;
 		router = createRouter(nbWorkers);
-		System.out.println("master and router created");
+		log.info("master and router created with " + nbWorkers + " workers");
+		start = System.currentTimeMillis();
 	}
 
 	@Override
 	public void onReceive(Object message) {
 		if (message instanceof com.poc.acteur.StartMessage) {
 			initialSender = getSender();
-			System.out.println("master received a start event");
+			//System.out.println("master received a start event");
+			// le routeur dispatche les differents elements de la liste au workers
 			for (Integer number : inputNumbers) {
-				// le routeur dispatche les differents elements de la liste au workers
 				router.route(number, getSelf());
+				//router2.tell(number, getSelf());
 			}
 			
 			//reception du resultat du traitement
 		} else if (message instanceof ResultMessage) {
-			System.out.println("master received result event");
 			ResultMessage result = (ResultMessage) message;
 			transformedNumbers.add(result.getValue());
 			
@@ -68,15 +74,15 @@ public class Master extends UntypedActor {
 				//calcule la duree du traitement
 				Duration duration = Duration.create(System.currentTimeMillis()
 						- start, TimeUnit.MILLISECONDS);
-				System.out.println(transformedNumbers.size()
+				log.info(transformedNumbers.size()
 						+ " numbers computed in " + duration);
 				
 				//on renvoie le resultat a la future
 				initialSender.tell(transformedNumbers, getSelf());
 				
 				// stop master and its workers
-				getContext().stop(getSelf());
-				getContext().system().shutdown();
+				//getContext().stop(getSelf());
+				//getContext().system().shutdown();
 			}
 		}
 	}
@@ -90,7 +96,8 @@ public class Master extends UntypedActor {
 		Router router = null;
 		final List<Routee> routees = new ArrayList<Routee>();
 		 for (int i = 0; i < nbWorkers; i++) {
-			 final ActorRef workerRouter = getContext().actorOf(Props.create(Worker.class));
+			 final ActorRef workerRouter = getContext().actorOf(Props.create(Worker.class),
+					 "router" + i);
 			 getContext().watch(workerRouter);
 			 routees.add(new ActorRefRoutee(workerRouter));
 		 }

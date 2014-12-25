@@ -1,14 +1,17 @@
 package com.poc.acteur;
 
 import akka.actor.UntypedActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 
 public class Worker extends UntypedActor {
 	
-	private static final int TIMER = 4000;
+	private static final int TIMER = 2000;
+	LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
 	@Override
 	public void onReceive(Object message) {
-		System.out.println("worker received an event");
+		log.info("worker received an event " + getContext().toString());
 		if (message instanceof Integer) {
 			int number = (Integer) message;
 			int transformedNumber = tranform(number);
