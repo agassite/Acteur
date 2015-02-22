@@ -4,6 +4,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
@@ -20,55 +23,45 @@ import junit.framework.TestSuite;
 /**
  * Unit test for simple App.
  */
-public class AppTest 
-    extends TestCase
-{
-	
-	public static final int POOL_WORKER = 8;
-    /**
-     * Create the test case
-     *
-     * @param testName name of the test case
-     */
-    public AppTest( String testName )
-    {
-        super( testName );
-    }
+public class AppTest extends TestCase {
 
-    /**
-     * @return the suite of tests being tested
-     */
-    public static Test suite()
-    {
-        return new TestSuite( AppTest.class );
-    }
+	/**
+	 * Create the test case
+	 *
+	 * @param testName
+	 *            name of the test case
+	 */
+	public AppTest(String testName) {
+		super(testName);
+	}
 
-    /**
-     * Rigourous Test :-)
-     */
-    public void testApp ()
-    {
-    	LoggingAdapter log = null;
-    	
-    	try {
-	    	//liste d'entier a traiter
-	    	List<Integer> numbers = Arrays.asList(1,2,3,4,5,6,7,8);  
-	    	ActorSystem system = ActorSystem.create("mySystem");  
-	    	log = Logging.getLogger(system, system);
-	    	
-	    	//creation du master
-	    	ActorRef master = system.actorOf(Props.create(Master.class,POOL_WORKER,numbers));
-	    	
-			// Creation de la future, Acteur implicite auquel notre master pourra repondre
-			Future<Object> future = Patterns
-					.ask(master, new StartMessage(), 30000);
-	    	
-			List <Integer> listeResultat = (List<Integer>) Await.result(future,
-					Duration.create(30000, TimeUnit.MILLISECONDS));
-	    	log.info("resultat= " + listeResultat);
-			system.shutdown();
-    	} catch (Exception ex) {
-    		log.error("error: " + ex.getMessage());
-    	}
-    }
+	/**
+	 * @return the suite of tests being tested
+	 */
+	public static Test suite() {
+		return new TestSuite(AppTest.class);
+	}
+
+	/**
+	 * Rigourous Test :-)
+	 */
+	public void testApp() throws Exception {
+
+		final ActorSystem system = ActorSystem.create("mySystem");
+		final LoggingAdapter log = Logging.getLogger(system, system);
+		final Config config = ConfigFactory.load();
+
+		// taille du pool de worker
+		final int poolWorkerSize = config.getInt("poolWorkerSize");
+
+		// liste d'entier a traiter
+		final List<Integer> numbers = config.getIntList("inputList");
+
+		final FunctionListProcessor processor = new FunctionListProcessor();
+		final List<Integer> listeResultat = processor.doubleList(numbers,
+				poolWorkerSize, system);
+		log.info("resultat= " + listeResultat);
+		system.shutdown();
+
+	}
 }

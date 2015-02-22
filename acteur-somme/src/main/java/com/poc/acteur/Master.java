@@ -22,14 +22,14 @@ import akka.routing.Router;
  */
 public class Master extends UntypedActor {
 
-	LoggingAdapter log = Logging.getLogger(getContext().system(), this);
+	final LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 	/**
 	 * La liste de nombres en entree
 	 */
 	private final List<Integer> inputNumbers;
 	
 	/**
-	 * La liste de nombres transformés
+	 * La liste de nombres transformï¿½s
 	 */
 	private final List<Integer> transformedNumbers;
 	
