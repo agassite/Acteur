@@ -1,19 +1,17 @@
 package com.poc.acteur;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
-import akka.routing.ActorRefRoutee;
-import akka.routing.RoundRobinRoutingLogic;
-import akka.routing.Routee;
+import akka.routing.RoundRobinPool;
 import akka.routing.Router;
+import scala.concurrent.duration.Duration;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 
@@ -32,12 +30,15 @@ public class Master extends UntypedActor {
 	 * La liste de nombres transform�s
 	 */
 	private final List<Integer> transformedNumbers;
-	
-	private final Router router;
-	
+
+	/**
+	 * Debut du traitement
+	 */
 	private  long start = System.currentTimeMillis();
+
+	ActorRef router = null;
 	
-	ActorRef router2 = null;
+
 	
 	/**
 	 * Reference vers la future pour lui renvoyer le resultat
@@ -56,11 +57,11 @@ public class Master extends UntypedActor {
 	public void onReceive(Object message) {
 		if (message instanceof com.poc.acteur.StartMessage) {
 			initialSender = getSender();
-			//System.out.println("master received a start event");
+
 			// le routeur dispatche les differents elements de la liste au workers
 			for (Integer number : inputNumbers) {
-				router.route(number, getSelf());
-				//router2.tell(number, getSelf());
+				router.tell(number, getSelf());
+
 			}
 			
 			//reception du resultat du traitement
@@ -79,10 +80,6 @@ public class Master extends UntypedActor {
 				
 				//on renvoie le resultat a la future
 				initialSender.tell(transformedNumbers, getSelf());
-				
-				// stop master and its workers
-				//getContext().stop(getSelf());
-				//getContext().system().shutdown();
 			}
 		}
 	}
@@ -92,16 +89,10 @@ public class Master extends UntypedActor {
 	 * @param nbWorkers
 	 * @return
 	 */
-	private Router createRouter (int nbWorkers) {
-		Router router = null;
-		final List<Routee> routees = new ArrayList<Routee>();
-		 for (int i = 0; i < nbWorkers; i++) {
-			 final ActorRef workerRouter = getContext().actorOf(Props.create(Worker.class),
-					 "router" + i);
-			 getContext().watch(workerRouter);
-			 routees.add(new ActorRefRoutee(workerRouter));
-		 }
-		 router = new Router(new RoundRobinRoutingLogic(), routees);
-		 return router;
+	private ActorRef createRouter (int nbWorkers) {
+		return
+				getContext().actorOf(new RoundRobinPool(nbWorkers).props(Props.create(Worker.class)),
+						"router2");
+
 	}
 }
